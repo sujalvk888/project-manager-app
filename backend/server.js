@@ -9,34 +9,57 @@ const app = express();
 app.use(express.json()); 
 app.use(cors()); 
 
+// ==========================================
 // 1. DATABASE CONNECTION
+// ==========================================
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("Connected to Local MongoDB!"))
+  .then(() => console.log("Connected to MongoDB!"))
   .catch(err => console.error("Database connection failed:", err));
 
-// 2. BLUEPRINTS
+// ==========================================
+// 2. DATABASE BLUEPRINTS (Models)
+// ==========================================
+
+// User Blueprint
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true }
 });
 const User = mongoose.model('User', UserSchema);
 
+// Project Blueprint
+const ProjectSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  description: { type: String, default: '' }
+});
+const Project = mongoose.model('Project', ProjectSchema);
+
+// Task Blueprint (Upgraded with Priorities, Dates, and Project Links)
 const TaskSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, default: '' },
   priority: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Medium' },
   dueDate: { type: Date },
-  status: { type: String, default: 'Todo' } 
+  status: { type: String, default: 'Todo' },
+  projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true } 
 });
 const Task = mongoose.model('Task', TaskSchema);
 
+// ==========================================
 // 3. API ROUTES
+// ==========================================
+
+// --- Auth Routes ---
 app.post('/api/register', async (req, res) => {
-  const { username, password } = req.body;
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const newUser = new User({ username, password: hashedPassword });
-  await newUser.save();
-  res.json({ message: "User created!" });
+  try {
+    const { username, password } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ username, password: hashedPassword });
+    await newUser.save();
+    res.json({ message: "User created!" });
+  } catch (error) {
+    res.status(400).json({ error: "Username might already exist." });
+  }
 });
 
 app.post('/api/login', async (req, res) => {
@@ -49,32 +72,41 @@ app.post('/api/login', async (req, res) => {
   res.json({ token, username });
 });
 
-app.get('/api/tasks', async (req, res) => {
-  const tasks = await Task.find();
+// --- Project Routes ---
+app.get('/api/projects', async (req, res) => {
+  const projects = await Project.find();
+  res.json(projects);
+});
+
+app.post('/api/projects', async (req, res) => {
+  const newProject = new Project({ 
+    name: req.body.name, 
+    description: req.body.description 
+  });
+  await newProject.save();
+  res.json(newProject);
+});
+
+// --- Task Routes ---
+app.get('/api/tasks/:projectId', async (req, res) => {
+  // Only fetch tasks that belong to the requested project
+  const tasks = await Task.find({ projectId: req.params.projectId });
   res.json(tasks);
 });
 
 app.post('/api/tasks', async (req, res) => {
-  // Now we grab all the new fields from the frontend
-  const { title, description, priority, dueDate } = req.body;
-  
-  const newTask = new Task({ title, description, priority, dueDate });
+  const newTask = new Task(req.body);
   await newTask.save();
   res.json(newTask);
 });
 
-// Also update the PUT route right below it so we can update these fields later!
 app.put('/api/tasks/:id', async (req, res) => {
-  // Changing req.body.status to just req.body allows us to update any field
   const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true });
   res.json(updatedTask);
 });
 
-app.put('/api/tasks/:id', async (req, res) => {
-  const updatedTask = await Task.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
-  res.json(updatedTask);
-});
-
+// ==========================================
 // 4. START SERVER
+// ==========================================
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Backend server running on http://localhost:${PORT}`));
