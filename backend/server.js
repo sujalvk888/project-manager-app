@@ -23,6 +23,9 @@ const User = mongoose.model('User', UserSchema);
 
 const TaskSchema = new mongoose.Schema({
   title: { type: String, required: true },
+  description: { type: String, default: '' },
+  priority: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Medium' },
+  dueDate: { type: Date },
   status: { type: String, default: 'Todo' } 
 });
 const Task = mongoose.model('Task', TaskSchema);
@@ -52,9 +55,19 @@ app.get('/api/tasks', async (req, res) => {
 });
 
 app.post('/api/tasks', async (req, res) => {
-  const newTask = new Task({ title: req.body.title });
+  // Now we grab all the new fields from the frontend
+  const { title, description, priority, dueDate } = req.body;
+  
+  const newTask = new Task({ title, description, priority, dueDate });
   await newTask.save();
   res.json(newTask);
+});
+
+// Also update the PUT route right below it so we can update these fields later!
+app.put('/api/tasks/:id', async (req, res) => {
+  // Changing req.body.status to just req.body allows us to update any field
+  const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.json(updatedTask);
 });
 
 app.put('/api/tasks/:id', async (req, res) => {
