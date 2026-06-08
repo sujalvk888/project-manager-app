@@ -1,6 +1,22 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
+// ==========================================
+// SVG ICON LIBRARY (Replaces Emojis)
+// ==========================================
+const Icons = {
+  Search: () => <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>,
+  Users: () => <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>,
+  User: () => <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>,
+  Calendar: () => <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>,
+  ArrowRight: () => <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>,
+  ChevronLeft: () => <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>,
+  ChevronRight: () => <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>,
+  Edit: () => <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>,
+  Trash: () => <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>,
+  Folder: () => <svg width="48" height="48" fill="none" stroke="rgba(255,255,255,0.8)" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+};
+
 export default function App() {
   const [token, setToken] = useState(null);
   const [username, setUsername] = useState("");
@@ -19,9 +35,7 @@ export default function App() {
   const [newDueDate, setNewDueDate] = useState("");
   const [newAssignee, setNewAssignee] = useState("Unassigned");
 
-  // --- NEW: Edit Task State ---
   const [editingTask, setEditingTask] = useState(null);
-
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("All");
 
@@ -120,12 +134,11 @@ export default function App() {
     } catch (error) { console.error("Failed to create task"); }
   };
 
-  // --- NEW: Handle Task Update ---
   const handleUpdateTask = async (e) => {
     e.preventDefault();
     try {
       await axios.put(`${API_URL}/tasks/${editingTask._id}`, editingTask, authConfig());
-      setEditingTask(null); // Close modal
+      setEditingTask(null); 
       fetchTasks(activeProject._id);
     } catch (error) { console.error("Failed to update task"); }
   };
@@ -181,7 +194,7 @@ export default function App() {
     return (
       <div className="dashboard-container">
         <div className="header fade-in-up">
-          <h1>Welcome, {username}! 👋</h1>
+          <h1>Welcome, {username}!</h1>
           <button className="btn btn-secondary" onClick={handleLogout}>Logout</button>
         </div>
 
@@ -196,20 +209,23 @@ export default function App() {
 
         <div className="project-grid">
           {projects.length === 0 && (
-            <div className="empty-state fade-in-up">No projects yet. Start by creating one above!</div>
+            <div className="empty-state fade-in-up">
+              <Icons.Folder />
+              <span>No projects yet. Start by creating one above!</span>
+            </div>
           )}
           {projects.map((project, index) => (
             <div key={project._id} className="project-card glass-panel fade-in-up" style={{ animationDelay: `${(index * 0.1) + 0.2}s` }} onClick={() => setActiveProject(project)}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <h3>{project.name}</h3>
-                <button className="btn btn-danger" style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem' }} onClick={(e) => handleDeleteProject(e, project._id)}>
-                  Delete
+                <button className="btn btn-danger btn-icon" onClick={(e) => handleDeleteProject(e, project._id)} title="Delete Project">
+                  <Icons.Trash />
                 </button>
               </div>
               <p className="project-desc">{project.description || "No description provided."}</p>
               <div className="project-meta">
-                <span className="project-members">👥 {project.members.length} Member(s)</span>
-                <span className="open-board-link">Open Board ➡️</span>
+                <span className="project-members"><Icons.Users /> {project.members.length} Member(s)</span>
+                <span className="open-board-link">Open Board <Icons.ArrowRight /></span>
               </div>
             </div>
           ))}
@@ -238,13 +254,13 @@ export default function App() {
       <div className="board-header fade-in-up">
         <div className="board-title-group">
           <button className="btn btn-secondary" style={{borderRadius: "999px"}} onClick={() => { setActiveProject(null); setSearchQuery(""); setFilterType("All"); }}>
-            ⬅️ Back
+            <Icons.ChevronLeft /> Back
           </button>
           <h1 style={{ margin: 0, color: "var(--primary-color)" }}>{activeProject.name}</h1>
         </div>
 
         <div className="team-invite-group glass-panel">
-          <span className="team-list">Team: {activeProject.members.join(", ")}</span>
+          <span className="team-list"><Icons.Users /> Team: {activeProject.members.join(", ")}</span>
           <form className="invite-input-group" onSubmit={handleInviteUser}>
             <input className="input-field" value={inviteUsername} onChange={e => setInviteUsername(e.target.value)} placeholder="Invite by username" />
             <button className="btn btn-primary" type="submit">Invite</button>
@@ -266,7 +282,7 @@ export default function App() {
       {/* Search & Filter Bar */}
       <div className="search-filter-bar glass-panel fade-in-up" style={{animationDelay: "0.2s"}}>
         <div className="search-input-wrapper flex-2">
-          <span className="search-icon">🔍</span>
+          <span className="search-icon"><Icons.Search /></span>
           <input className="input-field search-input" placeholder="Search tasks by title..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
         </div>
         <select className="input-field flex-1" style={{borderRadius: 'var(--radius-full)'}} value={filterType} onChange={e => setFilterType(e.target.value)}>
@@ -315,13 +331,11 @@ export default function App() {
                   <h4 className="task-title">{task.title}</h4>
                   <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                     {task.priority && <span className={`priority-badge ${getPriorityClass(task.priority)}`}>{task.priority}</span>}
-                    {/* Edit Button */}
-                    <button className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} onClick={() => setEditingTask(task)} title="Edit Task">
-                      ✏️
+                    <button className="btn btn-secondary btn-icon" onClick={() => setEditingTask(task)} title="Edit Task">
+                      <Icons.Edit />
                     </button>
-                    {/* Delete Button */}
-                    <button className="btn btn-danger" style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} onClick={() => handleDeleteTask(task._id)} title="Delete Task">
-                      🗑️
+                    <button className="btn btn-danger btn-icon" onClick={() => handleDeleteTask(task._id)} title="Delete Task">
+                      <Icons.Trash />
                     </button>
                   </div>
                 </div>
@@ -329,16 +343,20 @@ export default function App() {
                 {task.description && <p className="task-desc">{task.description}</p>}
                 
                 <div className="task-meta">
-                  <span className="task-date">{task.dueDate ? `📅 ${new Date(task.dueDate).toLocaleDateString()}` : "No due date"}</span>
-                  <span className="task-assignee">👤 {task.assignee}</span>
+                  <span className="task-date"><Icons.Calendar /> {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}</span>
+                  <span className="task-assignee"><Icons.User /> {task.assignee}</span>
                 </div>
                 
                 <div className="task-actions">
                   {columnStatus !== 'Todo' && (
-                    <button onClick={() => handleMoveTask(task._id, columnStatus === 'Done' ? 'In Progress' : 'Todo')}>⬅️ Back</button>
+                    <button className="btn" onClick={() => handleMoveTask(task._id, columnStatus === 'Done' ? 'In Progress' : 'Todo')}>
+                      <Icons.ChevronLeft /> Back
+                    </button>
                   )}
                   {columnStatus !== 'Done' && (
-                    <button onClick={() => handleMoveTask(task._id, columnStatus === 'Todo' ? 'In Progress' : 'Done')}>Forward ➡️</button>
+                    <button className="btn" onClick={() => handleMoveTask(task._id, columnStatus === 'Todo' ? 'In Progress' : 'Done')}>
+                      Forward <Icons.ChevronRight />
+                    </button>
                   )}
                 </div>
               </div>
@@ -374,7 +392,6 @@ export default function App() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Due Date</label>
-                  {/* Format date for input field: YYYY-MM-DD */}
                   <input type="date" className="input-field" value={editingTask.dueDate ? editingTask.dueDate.substring(0, 10) : ""} onChange={e => setEditingTask({...editingTask, dueDate: e.target.value})} />
                 </div>
               </div>
@@ -402,7 +419,6 @@ export default function App() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
