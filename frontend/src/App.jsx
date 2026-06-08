@@ -2,16 +2,19 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 export default function App() {
+  // Auth State
   const [token, setToken] = useState(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   
+  // Project State
   const [activeProject, setActiveProject] = useState(null); 
   const [projects, setProjects] = useState([]);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDesc, setNewProjectDesc] = useState("");
   const [inviteUsername, setInviteUsername] = useState(""); 
 
+  // Task State
   const [tasks, setTasks] = useState([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -19,36 +22,67 @@ export default function App() {
   const [newDueDate, setNewDueDate] = useState("");
   const [newAssignee, setNewAssignee] = useState("Unassigned");
 
+  // Filter State
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("All");
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
+  // Check for saved session on initial load
   useEffect(() => {
-    if (token && username) fetchProjects();
-  }, [token, username]);
+    const savedToken = localStorage.getItem("token");
+    const savedUsername = localStorage.getItem("username");
+    if (savedToken && savedUsername) {
+      setToken(savedToken);
+      setUsername(savedUsername);
+    }
+  }, []);
+
+  // Axios config generator for authenticated requests
+  const authConfig = () => ({
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  useEffect(() => {
+    if (token) fetchProjects();
+  }, [token]);
 
   useEffect(() => {
     if (activeProject) fetchTasks(activeProject._id);
   }, [activeProject]);
 
   const fetchProjects = async () => {
-    const response = await axios.get(`${API_URL}/projects?username=${username}`);
-    setProjects(response.data);
+    try {
+      const response = await axios.get(`${API_URL}/projects`, authConfig());
+      setProjects(response.data);
+    } catch (error) {
+      if (error.response?.status === 401 || error.response?.status === 403) handleLogout();
+    }
   };
 
   const fetchTasks = async (projectId) => {
-    const response = await axios.get(`${API_URL}/tasks/${projectId}`);
-    setTasks(response.data);
+    try {
+      const response = await axios.get(`${API_URL}/tasks/${projectId}`, authConfig());
+      setTasks(response.data);
+    } catch (error) { console.error("Error fetching tasks:", error); }
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
       const response = await axios.post(`${API_URL}/login`, { username, password });
-      setToken(response.data.token);
-      setUsername(response.data.username); 
-    } catch (error) { alert("Login failed. Check your credentials."); }
+      const { token: newToken, username: newUsername } = response.data;
+      
+      setToken(newToken);
+      setUsername(newUsername); 
+      setPassword(""); // Clear password from state
+
+      // Save to localStorage for persistence
+      localStorage.setItem("token", newToken);
+      localStorage.setItem("username", newUsername);
+    } catch (error) { 
+      alert("Login failed. Check your credentials."); 
+    }
   };
 
   const handleRegister = async (e) => {
@@ -56,20 +90,40 @@ export default function App() {
     try {
       await axios.post(`${API_URL}/register`, { username, password });
       alert("Registration successful! Please log in.");
-    } catch (error) { alert("Error registering. Username might be taken."); }
+    } catch (error) { 
+      alert("Error registering. Username might be taken."); 
+    }
+  };
+
+  const handleLogout = () => {
+    setToken(null);
+    setUsername("");
+    setActiveProject(null);
+    localStorage.removeItem("token");
+    localStorage.removeItem("username");
   };
 
   const handleCreateProject = async (e) => {
     e.preventDefault();
     if (!newProjectName) return;
-    await axios.post(`${API_URL}/projects`, { 
-      name: newProjectName, 
-      description: newProjectDesc,
-      username: username 
-    });
-    setNewProjectName("");
-    setNewProjectDesc("");
-    fetchProjects();
+    try {
+      await axios.post(`${API_URL}/projects`, { 
+        name: newProjectName, 
+        description: newProjectDesc
+      }, authConfig());
+      setNewProjectName("");
+      setNewProjectDesc("");
+      fetchProjects();
+    } catch (error) { console.error("Failed to create project"); }
+  };
+
+  const handleDeleteProject = async (e, projectId) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this project and all its tasks?")) return;
+    try {
+      await axios.delete(`${API_URL}/projects/${projectId}`, authConfig());
+      fetchProjects();
+    } catch (error) { console.error("Failed to delete project"); }
   };
 
   const handleInviteUser = async (e) => {
@@ -78,7 +132,7 @@ export default function App() {
     try {
       const response = await axios.put(`${API_URL}/projects/${activeProject._id}/invite`, { 
         newMemberUsername: inviteUsername 
-      });
+      }, authConfig());
       setActiveProject(response.data); 
       setInviteUsername("");
       fetchProjects(); 
@@ -91,24 +145,35 @@ export default function App() {
   const handleCreateTask = async (e) => {
     e.preventDefault();
     if (!newTaskTitle) return;
-    await axios.post(`${API_URL}/tasks`, { 
-      title: newTaskTitle,
-      description: newDescription,
-      priority: newPriority,
-      dueDate: newDueDate,
-      projectId: activeProject._id,
-      assignee: newAssignee 
-    });
-    setNewTaskTitle(""); setNewDescription(""); setNewPriority("Medium"); setNewDueDate(""); setNewAssignee("Unassigned");
-    fetchTasks(activeProject._id); 
+    try {
+      await axios.post(`${API_URL}/tasks`, { 
+        title: newTaskTitle,
+        description: newDescription,
+        priority: newPriority,
+        dueDate: newDueDate,
+        projectId: activeProject._id,
+        assignee: newAssignee 
+      }, authConfig());
+      setNewTaskTitle(""); setNewDescription(""); setNewPriority("Medium"); setNewDueDate(""); setNewAssignee("Unassigned");
+      fetchTasks(activeProject._id); 
+    } catch (error) { console.error("Failed to create task"); }
   };
 
   const handleMoveTask = async (taskId, newStatus) => {
-    await axios.put(`${API_URL}/tasks/${taskId}`, { status: newStatus });
-    fetchTasks(activeProject._id); 
+    try {
+      await axios.put(`${API_URL}/tasks/${taskId}`, { status: newStatus }, authConfig());
+      fetchTasks(activeProject._id); 
+    } catch (error) { console.error("Failed to move task"); }
   };
 
-  // Helper for applying CSS classes to priority badges
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm("Are you sure you want to delete this task?")) return;
+    try {
+      await axios.delete(`${API_URL}/tasks/${taskId}`, authConfig());
+      fetchTasks(activeProject._id);
+    } catch (error) { console.error("Failed to delete task"); }
+  };
+
   const getPriorityClass = (priority) => {
     if (priority === 'High') return 'priority-high';
     if (priority === 'Medium') return 'priority-medium';
@@ -159,7 +224,7 @@ export default function App() {
       <div className="dashboard-container">
         <div className="header">
           <h1>Hello, {username}! 👋</h1>
-          <button className="btn btn-secondary" onClick={() => setToken(null)}>Logout</button>
+          <button className="btn btn-secondary" onClick={handleLogout}>Logout</button>
         </div>
 
         <div className="create-card fade-in-up">
@@ -193,7 +258,16 @@ export default function App() {
               style={{ animationDelay: `${index * 0.05}s` }}
               onClick={() => setActiveProject(project)} 
             >
-              <h3>{project.name}</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <h3>{project.name}</h3>
+                <button 
+                  className="btn btn-danger" 
+                  style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}
+                  onClick={(e) => handleDeleteProject(e, project._id)}
+                >
+                  Delete
+                </button>
+              </div>
               <p className="project-desc">{project.description || "No description provided."}</p>
               
               <div className="project-meta">
@@ -353,15 +427,25 @@ export default function App() {
               <div 
                 key={task._id} 
                 className="task-card fade-in-up"
-                style={{ animationDelay: `${index * 0.05}s` }} /* Creates a staggering drop-in effect! */
+                style={{ animationDelay: `${index * 0.05}s` }}
               >
                 <div className="task-header">
                   <h4 className="task-title">{task.title}</h4>
-                  {task.priority && (
-                    <span className={`priority-badge ${getPriorityClass(task.priority)}`}>
-                      {task.priority}
-                    </span>
-                  )}
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    {task.priority && (
+                      <span className={`priority-badge ${getPriorityClass(task.priority)}`}>
+                        {task.priority}
+                      </span>
+                    )}
+                    <button 
+                      className="btn btn-danger" 
+                      style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}
+                      onClick={() => handleDeleteTask(task._id)}
+                      title="Delete Task"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
                 
                 {task.description && <p className="task-desc">{task.description}</p>}
@@ -378,12 +462,12 @@ export default function App() {
                 <div className="task-actions">
                   {columnStatus !== 'Todo' && (
                     <button onClick={() => handleMoveTask(task._id, columnStatus === 'Done' ? 'In Progress' : 'Todo')}>
-                      ⬅️ Move Back
+                      ⬅️ Back
                     </button>
                   )}
                   {columnStatus !== 'Done' && (
                     <button onClick={() => handleMoveTask(task._id, columnStatus === 'Todo' ? 'In Progress' : 'Done')}>
-                      Move Forward ➡️
+                      Forward ➡️
                     </button>
                   )}
                 </div>

@@ -503,3 +503,15 @@ body {
   background: var(--border-color);
   color: var(--text-primary);
 }
+
+/* --- Danger Action Buttons --- */
+.btn-danger {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+}
+.btn-danger:hover {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
