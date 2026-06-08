@@ -12,7 +12,7 @@ export default function App() {
   const [projects, setProjects] = useState([]);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDesc, setNewProjectDesc] = useState("");
-  const [inviteUsername, setInviteUsername] = useState(""); // For inviting friends
+  const [inviteUsername, setInviteUsername] = useState(""); 
 
   // --- STATE 3: Tasks ---
   const [tasks, setTasks] = useState([]);
@@ -22,9 +22,12 @@ export default function App() {
   const [newDueDate, setNewDueDate] = useState("");
   const [newAssignee, setNewAssignee] = useState("Unassigned");
 
+  // --- STATE 4: Search & Filtering (NEW) ---
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState("All"); // "All" or "Mine"
+
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-  // Fetch projects when logged in (Notice we now pass the username!)
   useEffect(() => {
     if (token && username) fetchProjects();
   }, [token, username]);
@@ -35,7 +38,6 @@ export default function App() {
 
   // --- API CALLS ---
   const fetchProjects = async () => {
-    // We send the username in the URL so the backend only sends OUR projects
     const response = await axios.get(`${API_URL}/projects?username=${username}`);
     setProjects(response.data);
   };
@@ -50,7 +52,7 @@ export default function App() {
     try {
       const response = await axios.post(`${API_URL}/login`, { username, password });
       setToken(response.data.token);
-      setUsername(response.data.username); // Save username for our queries!
+      setUsername(response.data.username); 
     } catch (error) { alert("Login failed."); }
   };
 
@@ -68,14 +70,13 @@ export default function App() {
     await axios.post(`${API_URL}/projects`, { 
       name: newProjectName, 
       description: newProjectDesc,
-      username: username // Tell the backend who is creating this!
+      username: username 
     });
     setNewProjectName("");
     setNewProjectDesc("");
     fetchProjects();
   };
 
-  // NEW: Invite User to Project
   const handleInviteUser = async (e) => {
     e.preventDefault();
     if (!inviteUsername) return;
@@ -83,9 +84,9 @@ export default function App() {
       const response = await axios.put(`${API_URL}/projects/${activeProject._id}/invite`, { 
         newMemberUsername: inviteUsername 
       });
-      setActiveProject(response.data); // Update the active project to show the new member immediately
+      setActiveProject(response.data); 
       setInviteUsername("");
-      fetchProjects(); // Refresh the background list
+      fetchProjects(); 
       alert(`Successfully added ${inviteUsername} to the project!`);
     } catch (error) {
       alert("User not found! Make sure you typed their exact username.");
@@ -101,7 +102,7 @@ export default function App() {
       priority: newPriority,
       dueDate: newDueDate,
       projectId: activeProject._id,
-      assignee: newAssignee // Send the assigned person
+      assignee: newAssignee 
     });
     setNewTaskTitle(""); setNewDescription(""); setNewPriority("Medium"); setNewDueDate(""); setNewAssignee("Unassigned");
     fetchTasks(activeProject._id); 
@@ -168,10 +169,7 @@ export default function App() {
             >
               <h3 style={{ marginTop: 0 }}>{project.name}</h3>
               <p style={{ color: "#666", fontSize: "14px", marginBottom: "5px" }}>{project.description || "No description provided."}</p>
-              
-              {/* Show member count to make it feel like a real team tool! */}
               <p style={{ fontSize: "12px", color: "#888", marginBottom: "15px" }}>👥 {project.members.length} Member(s)</p>
-              
               <p style={{ color: "#007bff", fontWeight: "bold", fontSize: "14px", margin: "0" }}>Open Board ➡️</p>
             </div>
           ))}
@@ -183,17 +181,29 @@ export default function App() {
   // ==========================================
   // RENDER 3: THE KANBAN BOARD
   // ==========================================
+  
+  // PHASE 4 MATH: Calculate Progress
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter(t => t.status === 'Done').length;
+  const progressPercentage = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+
+  // PHASE 4 MATH: Filter the tasks based on user input
+  const filteredTasks = tasks.filter(task => {
+    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesAssignee = filterType === "All" ? true : task.assignee === username;
+    return matchesSearch && matchesAssignee;
+  });
+
   return (
     <div style={{ padding: "20px", fontFamily: "sans-serif" }}>
       
       {/* Header Area */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-          <button onClick={() => setActiveProject(null)} style={{ padding: "8px 15px", cursor: "pointer" }}>⬅️ Dashboard</button>
+          <button onClick={() => { setActiveProject(null); setSearchQuery(""); setFilterType("All"); }} style={{ padding: "8px 15px", cursor: "pointer" }}>⬅️ Dashboard</button>
           <h1 style={{ margin: 0 }}>{activeProject.name}</h1>
         </div>
 
-        {/* TEAM COLLABORATION: Invite Input */}
         <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>
           <span style={{ fontSize: "14px", color: "#666" }}>Team: {activeProject.members.join(", ")}</span>
           <div style={{ marginLeft: "15px", display: "flex", border: "1px solid #ccc", borderRadius: "4px", overflow: "hidden" }}>
@@ -206,6 +216,40 @@ export default function App() {
             <button onClick={handleInviteUser} style={{ padding: "5px 10px", border: "none", backgroundColor: "#17a2b8", color: "white", cursor: "pointer" }}>Invite</button>
           </div>
         </div>
+      </div>
+
+      {/* PHASE 4: Progress Bar */}
+      <div style={{ marginBottom: "25px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px", fontSize: "14px" }}>
+          <span style={{ fontWeight: "bold", color: "#444" }}>Project Progress</span>
+          <span style={{ fontWeight: "bold", color: progressPercentage === 100 ? "#28a745" : "#007bff" }}>{progressPercentage}%</span>
+        </div>
+        <div style={{ height: "12px", backgroundColor: "#e9ecef", borderRadius: "6px", overflow: "hidden" }}>
+          <div style={{ 
+            width: `${progressPercentage}%`, 
+            height: "100%", 
+            backgroundColor: progressPercentage === 100 ? "#28a745" : "#007bff", 
+            transition: "width 0.4s ease" 
+          }}></div>
+        </div>
+      </div>
+
+      {/* PHASE 4: Search & Filter Bar */}
+      <div style={{ display: "flex", gap: "15px", marginBottom: "25px", backgroundColor: "#f8f9fa", padding: "15px", borderRadius: "8px", border: "1px solid #ddd" }}>
+        <input 
+          placeholder="🔍 Search tasks by title..." 
+          value={searchQuery} 
+          onChange={e => setSearchQuery(e.target.value)} 
+          style={{ flex: 2, padding: "10px", border: "1px solid #ccc", borderRadius: "4px" }}
+        />
+        <select 
+          value={filterType} 
+          onChange={e => setFilterType(e.target.value)} 
+          style={{ flex: 1, padding: "10px", border: "1px solid #ccc", borderRadius: "4px", backgroundColor: "white" }}
+        >
+          <option value="All">View: All Team Tasks</option>
+          <option value="Mine">View: Only My Tasks</option>
+        </select>
       </div>
       
       {/* Task Creation Form */}
@@ -222,14 +266,12 @@ export default function App() {
           
           <input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} style={{ padding: "8px" }}/>
           
-          {/* TEAM COLLABORATION: Assignee Dropdown */}
           <select value={newAssignee} onChange={e => setNewAssignee(e.target.value)} style={{ padding: "8px", backgroundColor: "#e9ecef" }}>
             <option value="Unassigned">Assign To...</option>
             {activeProject.members.map(member => (
               <option key={member} value={member}>{member}</option>
             ))}
           </select>
-
         </div>
         <textarea value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Task description..." style={{ width: "100%", height: "40px", marginBottom: "10px", padding: "8px" }} />
         <button onClick={handleCreateTask} style={{ width: "100%", padding: "8px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "5px", cursor: "pointer" }}>
@@ -237,13 +279,18 @@ export default function App() {
         </button>
       </div>
 
-      {/* The Columns */}
+      {/* The Columns (NOW USING filteredTasks!) */}
       <div style={{ display: "flex", gap: "20px" }}>
         {['Todo', 'In Progress', 'Done'].map(columnStatus => (
           <div key={columnStatus} style={{ border: "1px solid #ccc", borderRadius: "8px", padding: "15px", width: "33%", backgroundColor: "#f4f5f7" }}>
-            <h3 style={{ marginTop: 0, borderBottom: "2px solid #ddd", paddingBottom: "10px" }}>{columnStatus}</h3>
+            <h3 style={{ marginTop: 0, borderBottom: "2px solid #ddd", paddingBottom: "10px" }}>
+              {columnStatus} 
+              <span style={{ float: "right", fontSize: "14px", color: "#666", backgroundColor: "#e9ecef", padding: "2px 8px", borderRadius: "12px" }}>
+                {filteredTasks.filter(t => t.status === columnStatus).length}
+              </span>
+            </h3>
             
-            {tasks.filter(t => t.status === columnStatus).map(task => (
+            {filteredTasks.filter(t => t.status === columnStatus).map(task => (
               <div key={task._id} style={{ border: "1px solid #ddd", borderRadius: "5px", padding: "10px", margin: "10px 0", backgroundColor: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
                 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
@@ -255,7 +302,6 @@ export default function App() {
                 
                 {task.description && <p style={{ fontSize: "14px", color: "#555", margin: "0 0 10px 0" }}>{task.description}</p>}
                 
-                {/* Information Row: Due Date & Assignee */}
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
                   <span style={{ fontSize: "12px", color: "#888" }}>
                     {task.dueDate ? `📅 ${new Date(task.dueDate).toLocaleDateString()}` : ""}

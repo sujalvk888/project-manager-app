@@ -25,15 +25,13 @@ const UserSchema = new mongoose.Schema({
 });
 const User = mongoose.model('User', UserSchema);
 
-// UPGRADED: Projects now have an array of "members" (usernames)
 const ProjectSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String, default: '' },
-  members: [{ type: String }] // Example: ['Sujal_888', 'JohnDoe']
+  members: [{ type: String }] 
 });
 const Project = mongoose.model('Project', ProjectSchema);
 
-// UPGRADED: Tasks now have an "assignee"
 const TaskSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, default: '' },
@@ -49,7 +47,6 @@ const Task = mongoose.model('Task', TaskSchema);
 // 3. API ROUTES
 // ==========================================
 
-// --- Auth Routes ---
 app.post('/api/register', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -72,47 +69,35 @@ app.post('/api/login', async (req, res) => {
   res.json({ token, username });
 });
 
-// --- Project Routes ---
-
-// Get projects (ONLY the ones where this user is a member)
 app.get('/api/projects', async (req, res) => {
-  const { username } = req.query; // The frontend will tell us who is asking
+  const { username } = req.query; 
   const projects = await Project.find({ members: username });
   res.json(projects);
 });
 
-// Create a new project (Automatically add the creator to members)
 app.post('/api/projects', async (req, res) => {
   const newProject = new Project({ 
     name: req.body.name, 
     description: req.body.description,
-    members: [req.body.username] // Add the creator's username immediately!
+    members: [req.body.username] 
   });
   await newProject.save();
   res.json(newProject);
 });
 
-// NEW: Invite a user to a project
 app.put('/api/projects/:id/invite', async (req, res) => {
   const { newMemberUsername } = req.body;
-  
-  // 1. Check if the user they want to invite actually exists in our database
   const userExists = await User.findOne({ username: newMemberUsername });
-  if (!userExists) {
-    return res.status(404).json({ error: "User not found!" });
-  }
+  if (!userExists) return res.status(404).json({ error: "User not found!" });
 
-  // 2. Add them to the project's member list safely ($addToSet prevents duplicates)
   const updatedProject = await Project.findByIdAndUpdate(
     req.params.id, 
     { $addToSet: { members: newMemberUsername } }, 
     { new: true }
   );
-  
   res.json(updatedProject);
 });
 
-// --- Task Routes ---
 app.get('/api/tasks/:projectId', async (req, res) => {
   const tasks = await Task.find({ projectId: req.params.projectId });
   res.json(tasks);
