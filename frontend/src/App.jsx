@@ -2,19 +2,16 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 export default function App() {
-  // Auth State
   const [token, setToken] = useState(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   
-  // Project State
   const [activeProject, setActiveProject] = useState(null); 
   const [projects, setProjects] = useState([]);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDesc, setNewProjectDesc] = useState("");
   const [inviteUsername, setInviteUsername] = useState(""); 
 
-  // Task State
   const [tasks, setTasks] = useState([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -22,34 +19,26 @@ export default function App() {
   const [newDueDate, setNewDueDate] = useState("");
   const [newAssignee, setNewAssignee] = useState("Unassigned");
 
-  // Filter State
+  // --- NEW: Edit Task State ---
+  const [editingTask, setEditingTask] = useState(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("All");
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-  // Check for saved session on initial load
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
     const savedUsername = localStorage.getItem("username");
     if (savedToken && savedUsername) {
-      setToken(savedToken);
-      setUsername(savedUsername);
+      setToken(savedToken); setUsername(savedUsername);
     }
   }, []);
 
-  // Axios config generator for authenticated requests
-  const authConfig = () => ({
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  const authConfig = () => ({ headers: { Authorization: `Bearer ${token}` } });
 
-  useEffect(() => {
-    if (token) fetchProjects();
-  }, [token]);
-
-  useEffect(() => {
-    if (activeProject) fetchTasks(activeProject._id);
-  }, [activeProject]);
+  useEffect(() => { if (token) fetchProjects(); }, [token]);
+  useEffect(() => { if (activeProject) fetchTasks(activeProject._id); }, [activeProject]);
 
   const fetchProjects = async () => {
     try {
@@ -72,17 +61,9 @@ export default function App() {
     try {
       const response = await axios.post(`${API_URL}/login`, { username, password });
       const { token: newToken, username: newUsername } = response.data;
-      
-      setToken(newToken);
-      setUsername(newUsername); 
-      setPassword(""); // Clear password from state
-
-      // Save to localStorage for persistence
-      localStorage.setItem("token", newToken);
-      localStorage.setItem("username", newUsername);
-    } catch (error) { 
-      alert("Login failed. Check your credentials."); 
-    }
+      setToken(newToken); setUsername(newUsername); setPassword(""); 
+      localStorage.setItem("token", newToken); localStorage.setItem("username", newUsername);
+    } catch (error) { alert("Login failed. Check your credentials."); }
   };
 
   const handleRegister = async (e) => {
@@ -90,30 +71,20 @@ export default function App() {
     try {
       await axios.post(`${API_URL}/register`, { username, password });
       alert("Registration successful! Please log in.");
-    } catch (error) { 
-      alert("Error registering. Username might be taken."); 
-    }
+    } catch (error) { alert("Error registering. Username might be taken."); }
   };
 
   const handleLogout = () => {
-    setToken(null);
-    setUsername("");
-    setActiveProject(null);
-    localStorage.removeItem("token");
-    localStorage.removeItem("username");
+    setToken(null); setUsername(""); setActiveProject(null);
+    localStorage.removeItem("token"); localStorage.removeItem("username");
   };
 
   const handleCreateProject = async (e) => {
     e.preventDefault();
     if (!newProjectName) return;
     try {
-      await axios.post(`${API_URL}/projects`, { 
-        name: newProjectName, 
-        description: newProjectDesc
-      }, authConfig());
-      setNewProjectName("");
-      setNewProjectDesc("");
-      fetchProjects();
+      await axios.post(`${API_URL}/projects`, { name: newProjectName, description: newProjectDesc }, authConfig());
+      setNewProjectName(""); setNewProjectDesc(""); fetchProjects();
     } catch (error) { console.error("Failed to create project"); }
   };
 
@@ -130,16 +101,10 @@ export default function App() {
     e.preventDefault();
     if (!inviteUsername) return;
     try {
-      const response = await axios.put(`${API_URL}/projects/${activeProject._id}/invite`, { 
-        newMemberUsername: inviteUsername 
-      }, authConfig());
-      setActiveProject(response.data); 
-      setInviteUsername("");
-      fetchProjects(); 
+      const response = await axios.put(`${API_URL}/projects/${activeProject._id}/invite`, { newMemberUsername: inviteUsername }, authConfig());
+      setActiveProject(response.data); setInviteUsername(""); fetchProjects(); 
       alert(`Successfully added ${inviteUsername} to the project!`);
-    } catch (error) {
-      alert("User not found! Make sure you typed their exact username.");
-    }
+    } catch (error) { alert("User not found! Make sure you typed their exact username."); }
   };
 
   const handleCreateTask = async (e) => {
@@ -147,16 +112,22 @@ export default function App() {
     if (!newTaskTitle) return;
     try {
       await axios.post(`${API_URL}/tasks`, { 
-        title: newTaskTitle,
-        description: newDescription,
-        priority: newPriority,
-        dueDate: newDueDate,
-        projectId: activeProject._id,
-        assignee: newAssignee 
+        title: newTaskTitle, description: newDescription, priority: newPriority, 
+        dueDate: newDueDate, projectId: activeProject._id, assignee: newAssignee 
       }, authConfig());
       setNewTaskTitle(""); setNewDescription(""); setNewPriority("Medium"); setNewDueDate(""); setNewAssignee("Unassigned");
       fetchTasks(activeProject._id); 
     } catch (error) { console.error("Failed to create task"); }
+  };
+
+  // --- NEW: Handle Task Update ---
+  const handleUpdateTask = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.put(`${API_URL}/tasks/${editingTask._id}`, editingTask, authConfig());
+      setEditingTask(null); // Close modal
+      fetchTasks(activeProject._id);
+    } catch (error) { console.error("Failed to update task"); }
   };
 
   const handleMoveTask = async (taskId, newStatus) => {
@@ -187,25 +158,12 @@ export default function App() {
   if (!token) {
     return (
       <div className="auth-container">
-        <div className="auth-card">
-          <h2>Project Manager</h2>
-          <p className="auth-subtitle">Sign in to continue</p>
+        <div className="auth-card glass-panel fade-in-up">
+          <h2>Project Flow</h2>
+          <p className="auth-subtitle">Welcome back. Please sign in.</p>
           <form className="auth-form" onSubmit={handleLogin}>
-            <input 
-              className="input-field" 
-              placeholder="Username" 
-              value={username} 
-              onChange={e => setUsername(e.target.value)} 
-              required
-            />
-            <input 
-              className="input-field" 
-              type="password" 
-              placeholder="Password" 
-              value={password} 
-              onChange={e => setPassword(e.target.value)} 
-              required
-            />
+            <input className="input-field" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} required />
+            <input className="input-field" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
             <div className="auth-buttons">
               <button className="btn btn-primary" type="submit">Login</button>
               <button className="btn btn-secondary" type="button" onClick={handleRegister}>Register</button>
@@ -222,54 +180,33 @@ export default function App() {
   if (!activeProject) {
     return (
       <div className="dashboard-container">
-        <div className="header">
-          <h1>Hello, {username}! 👋</h1>
+        <div className="header fade-in-up">
+          <h1>Welcome, {username}! 👋</h1>
           <button className="btn btn-secondary" onClick={handleLogout}>Logout</button>
         </div>
 
-        <div className="create-card fade-in-up">
+        <div className="create-card glass-panel fade-in-up" style={{animationDelay: "0.1s"}}>
           <h3>Start a New Project</h3>
           <form className="create-form-row" onSubmit={handleCreateProject}>
-            <input 
-              className="input-field flex-2" 
-              value={newProjectName} 
-              onChange={e => setNewProjectName(e.target.value)} 
-              placeholder="Project Name" 
-              required
-            />
-            <input 
-              className="input-field flex-3" 
-              value={newProjectDesc} 
-              onChange={e => setNewProjectDesc(e.target.value)} 
-              placeholder="Short Description" 
-            />
+            <input className="input-field flex-2" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} placeholder="Project Name" required />
+            <input className="input-field flex-3" value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} placeholder="Short Description" />
             <button className="btn btn-success" type="submit">Create Project</button>
           </form>
         </div>
 
         <div className="project-grid">
           {projects.length === 0 && (
-            <div className="empty-state">No projects yet. Create one above!</div>
+            <div className="empty-state fade-in-up">No projects yet. Start by creating one above!</div>
           )}
           {projects.map((project, index) => (
-            <div 
-              key={project._id} 
-              className="project-card fade-in-up"
-              style={{ animationDelay: `${index * 0.05}s` }}
-              onClick={() => setActiveProject(project)} 
-            >
+            <div key={project._id} className="project-card glass-panel fade-in-up" style={{ animationDelay: `${(index * 0.1) + 0.2}s` }} onClick={() => setActiveProject(project)}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <h3>{project.name}</h3>
-                <button 
-                  className="btn btn-danger" 
-                  style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}
-                  onClick={(e) => handleDeleteProject(e, project._id)}
-                >
+                <button className="btn btn-danger" style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem' }} onClick={(e) => handleDeleteProject(e, project._id)}>
                   Delete
                 </button>
               </div>
               <p className="project-desc">{project.description || "No description provided."}</p>
-              
               <div className="project-meta">
                 <span className="project-members">👥 {project.members.length} Member(s)</span>
                 <span className="open-board-link">Open Board ➡️</span>
@@ -298,151 +235,92 @@ export default function App() {
     <div className="dashboard-container">
       
       {/* Header Area */}
-      <div className="board-header">
+      <div className="board-header fade-in-up">
         <div className="board-title-group">
-          <button className="btn btn-secondary" onClick={() => { setActiveProject(null); setSearchQuery(""); setFilterType("All"); }}>
-            ⬅️ Dashboard
+          <button className="btn btn-secondary" style={{borderRadius: "999px"}} onClick={() => { setActiveProject(null); setSearchQuery(""); setFilterType("All"); }}>
+            ⬅️ Back
           </button>
-          <h1 style={{ margin: 0 }}>{activeProject.name}</h1>
+          <h1 style={{ margin: 0, color: "var(--primary-color)" }}>{activeProject.name}</h1>
         </div>
 
-        <div className="team-invite-group">
+        <div className="team-invite-group glass-panel">
           <span className="team-list">Team: {activeProject.members.join(", ")}</span>
           <form className="invite-input-group" onSubmit={handleInviteUser}>
-            <input 
-              className="input-field"
-              value={inviteUsername} 
-              onChange={e => setInviteUsername(e.target.value)} 
-              placeholder="Friend's username" 
-            />
+            <input className="input-field" value={inviteUsername} onChange={e => setInviteUsername(e.target.value)} placeholder="Invite by username" />
             <button className="btn btn-primary" type="submit">Invite</button>
           </form>
         </div>
       </div>
 
       {/* Progress Bar */}
-      <div className="progress-container fade-in-up">
+      <div className="progress-container glass-panel fade-in-up" style={{animationDelay: "0.1s"}}>
         <div className="progress-header">
-          <span>Project Progress</span>
-          <span className={progressPercentage === 100 ? "text-success" : "text-primary"}>
-            {progressPercentage}%
-          </span>
+          <span>Overall Project Progress</span>
+          <span className={progressPercentage === 100 ? "text-success" : "text-primary"}>{progressPercentage}%</span>
         </div>
         <div className="progress-track">
-          <div 
-            className={`progress-fill ${progressPercentage === 100 ? 'complete' : ''}`}
-            style={{ width: `${progressPercentage}%` }}
-          ></div>
+          <div className={`progress-fill ${progressPercentage === 100 ? 'complete' : ''}`} style={{ width: `${progressPercentage}%` }}></div>
         </div>
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="search-filter-bar fade-in-up">
+      <div className="search-filter-bar glass-panel fade-in-up" style={{animationDelay: "0.2s"}}>
         <div className="search-input-wrapper flex-2">
           <span className="search-icon">🔍</span>
-          <input 
-            className="input-field search-input"
-            placeholder="Search tasks by title..." 
-            value={searchQuery} 
-            onChange={e => setSearchQuery(e.target.value)} 
-          />
+          <input className="input-field search-input" placeholder="Search tasks by title..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
         </div>
-        <select 
-          className="input-field flex-1"
-          value={filterType} 
-          onChange={e => setFilterType(e.target.value)} 
-        >
+        <select className="input-field flex-1" style={{borderRadius: 'var(--radius-full)'}} value={filterType} onChange={e => setFilterType(e.target.value)}>
           <option value="All">View: All Team Tasks</option>
           <option value="Mine">View: Only My Tasks</option>
         </select>
       </div>
       
       {/* Task Creation Form */}
-      <div className="create-card fade-in-up">
+      <div className="create-card glass-panel fade-in-up" style={{animationDelay: "0.3s"}}>
         <h3>Add New Task</h3>
         <form onSubmit={handleCreateTask}>
           <div className="create-form-row">
-            <input 
-              className="input-field flex-2"
-              value={newTaskTitle} 
-              onChange={e => setNewTaskTitle(e.target.value)} 
-              placeholder="Task Title" 
-              required
-            />
-            <select 
-              className="input-field flex-1"
-              value={newPriority} 
-              onChange={e => setNewPriority(e.target.value)}
-            >
+            <input className="input-field flex-2" value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)} placeholder="Task Title" required />
+            <select className="input-field flex-1" value={newPriority} onChange={e => setNewPriority(e.target.value)}>
               <option value="Low">Low Priority</option>
               <option value="Medium">Medium Priority</option>
               <option value="High">High Priority</option>
             </select>
-            
-            <input 
-              type="date" 
-              className="input-field flex-1"
-              value={newDueDate} 
-              onChange={e => setNewDueDate(e.target.value)} 
-            />
-            
-            <select 
-              className="input-field flex-1"
-              value={newAssignee} 
-              onChange={e => setNewAssignee(e.target.value)} 
-            >
+            <input type="date" className="input-field flex-1" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} />
+            <select className="input-field flex-1" value={newAssignee} onChange={e => setNewAssignee(e.target.value)}>
               <option value="Unassigned">Assign To...</option>
               {activeProject.members.map(member => (
                 <option key={member} value={member}>{member}</option>
               ))}
             </select>
           </div>
-          <textarea 
-            className="input-field"
-            value={newDescription} 
-            onChange={e => setNewDescription(e.target.value)} 
-            placeholder="Task description..." 
-            rows="2"
-            style={{ marginBottom: "1rem" }}
-          />
-          <button className="btn btn-primary" style={{ width: "100%" }} type="submit">
-            Add Task
-          </button>
+          <textarea className="input-field" value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Task description..." rows="2" style={{ marginBottom: "1rem" }} />
+          <button className="btn btn-primary" style={{ width: "100%" }} type="submit">Add Task</button>
         </form>
       </div>
 
       {/* The Kanban Columns */}
-      <div className="kanban-board fade-in-up">
+      <div className="kanban-board fade-in-up" style={{animationDelay: "0.4s"}}>
         {['Todo', 'In Progress', 'Done'].map(columnStatus => (
-          <div key={columnStatus} className="kanban-column">
+          <div key={columnStatus} className="kanban-column glass-panel">
             
             <div className="column-header">
               <h3>{columnStatus}</h3>
-              <span className="task-count">
-                {filteredTasks.filter(t => t.status === columnStatus).length}
-              </span>
+              <span className="task-count">{filteredTasks.filter(t => t.status === columnStatus).length}</span>
             </div>
             
-            {filteredTasks.filter(t => t.status === columnStatus).map((task, index) => (
-              <div 
-                key={task._id} 
-                className="task-card fade-in-up"
-                style={{ animationDelay: `${index * 0.05}s` }}
-              >
+            {filteredTasks.filter(t => t.status === columnStatus).map((task) => (
+              <div key={task._id} className="task-card">
                 <div className="task-header">
                   <h4 className="task-title">{task.title}</h4>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    {task.priority && (
-                      <span className={`priority-badge ${getPriorityClass(task.priority)}`}>
-                        {task.priority}
-                      </span>
-                    )}
-                    <button 
-                      className="btn btn-danger" 
-                      style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}
-                      onClick={() => handleDeleteTask(task._id)}
-                      title="Delete Task"
-                    >
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                    {task.priority && <span className={`priority-badge ${getPriorityClass(task.priority)}`}>{task.priority}</span>}
+                    {/* Edit Button */}
+                    <button className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} onClick={() => setEditingTask(task)} title="Edit Task">
+                      ✏️
+                    </button>
+                    {/* Delete Button */}
+                    <button className="btn btn-danger" style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} onClick={() => handleDeleteTask(task._id)} title="Delete Task">
                       🗑️
                     </button>
                   </div>
@@ -451,32 +329,79 @@ export default function App() {
                 {task.description && <p className="task-desc">{task.description}</p>}
                 
                 <div className="task-meta">
-                  <span className="task-date">
-                    {task.dueDate ? `📅 ${new Date(task.dueDate).toLocaleDateString()}` : "No due date"}
-                  </span>
-                  <span className="task-assignee">
-                    👤 {task.assignee}
-                  </span>
+                  <span className="task-date">{task.dueDate ? `📅 ${new Date(task.dueDate).toLocaleDateString()}` : "No due date"}</span>
+                  <span className="task-assignee">👤 {task.assignee}</span>
                 </div>
                 
                 <div className="task-actions">
                   {columnStatus !== 'Todo' && (
-                    <button onClick={() => handleMoveTask(task._id, columnStatus === 'Done' ? 'In Progress' : 'Todo')}>
-                      ⬅️ Back
-                    </button>
+                    <button onClick={() => handleMoveTask(task._id, columnStatus === 'Done' ? 'In Progress' : 'Todo')}>⬅️ Back</button>
                   )}
                   {columnStatus !== 'Done' && (
-                    <button onClick={() => handleMoveTask(task._id, columnStatus === 'Todo' ? 'In Progress' : 'Done')}>
-                      Forward ➡️
-                    </button>
+                    <button onClick={() => handleMoveTask(task._id, columnStatus === 'Todo' ? 'In Progress' : 'Done')}>Forward ➡️</button>
                   )}
                 </div>
               </div>
             ))}
-
           </div>
         ))}
       </div>
+
+      {/* ==========================================
+          MODAL: EDIT TASK
+      ========================================== */}
+      {editingTask && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-panel">
+            <div className="modal-header">
+              <h2>Edit Task</h2>
+              <button className="close-btn" onClick={() => setEditingTask(null)}>&times;</button>
+            </div>
+            <form onSubmit={handleUpdateTask} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Title</label>
+                <input className="input-field" value={editingTask.title} onChange={e => setEditingTask({...editingTask, title: e.target.value})} required />
+              </div>
+              
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Priority</label>
+                  <select className="input-field" value={editingTask.priority} onChange={e => setEditingTask({...editingTask, priority: e.target.value})}>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Due Date</label>
+                  {/* Format date for input field: YYYY-MM-DD */}
+                  <input type="date" className="input-field" value={editingTask.dueDate ? editingTask.dueDate.substring(0, 10) : ""} onChange={e => setEditingTask({...editingTask, dueDate: e.target.value})} />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Assignee</label>
+                <select className="input-field" value={editingTask.assignee} onChange={e => setEditingTask({...editingTask, assignee: e.target.value})}>
+                  <option value="Unassigned">Unassigned</option>
+                  {activeProject.members.map(member => (
+                    <option key={member} value={member}>{member}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Description</label>
+                <textarea className="input-field" value={editingTask.description} onChange={e => setEditingTask({...editingTask, description: e.target.value})} rows="3" />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setEditingTask(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

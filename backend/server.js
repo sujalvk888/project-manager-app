@@ -48,13 +48,13 @@ const Task = mongoose.model('Task', TaskSchema);
 // ==========================================
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Format: "Bearer TOKEN"
+  const token = authHeader && authHeader.split(' ')[1]; 
   
   if (!token) return res.status(401).json({ error: "Access denied. No token provided." });
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) return res.status(403).json({ error: "Invalid or expired token." });
-    req.user = user; // user payload contains { id, username }
+    req.user = user; 
     next();
   });
 };
@@ -83,7 +83,6 @@ app.post('/api/login', async (req, res) => {
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(400).json({ error: "Invalid credentials" });
     }
-    // Include both ID and username in token payload
     const token = jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET);
     res.json({ token, username });
   } catch (error) {
@@ -94,7 +93,6 @@ app.post('/api/login', async (req, res) => {
 // --- PROJECTS ---
 app.get('/api/projects', authenticateToken, async (req, res) => {
   try {
-    // Securely find projects based on the authenticated user's token
     const projects = await Project.find({ members: req.user.username });
     res.json(projects);
   } catch (error) {
@@ -107,7 +105,7 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
     const newProject = new Project({ 
       name: req.body.name, 
       description: req.body.description,
-      members: [req.user.username] // Force creator as initial member
+      members: [req.user.username] 
     });
     await newProject.save();
     res.json(newProject);
@@ -136,7 +134,6 @@ app.put('/api/projects/:id/invite', authenticateToken, async (req, res) => {
 app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
   try {
     await Project.findByIdAndDelete(req.params.id);
-    // Cascade delete: Remove all tasks associated with this project
     await Task.deleteMany({ projectId: req.params.id }); 
     res.json({ message: "Project deleted successfully" });
   } catch (error) {
@@ -182,8 +179,5 @@ app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// ==========================================
-// 5. START SERVER
-// ==========================================
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Backend server running on http://localhost:${PORT}`));
