@@ -4,6 +4,10 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const dns = require('dns');
+
+// Fix for MongoDB Atlas DNS resolution issues on certain ISPs
+dns.setServers(['1.1.1.1', '8.8.8.8']);
 
 const app = express();
 app.use(express.json()); 
