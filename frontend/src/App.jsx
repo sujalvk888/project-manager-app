@@ -18,9 +18,10 @@ const Icons = {
 };
 
 export default function App() {
-  const [token, setToken] = useState(null);
-  const [username, setUsername] = useState("");
+  const [token, setToken] = useState(() => localStorage.getItem("token"));
+  const [username, setUsername] = useState(() => localStorage.getItem("username") || "");
   const [password, setPassword] = useState("");
+  const [isLoginView, setIsLoginView] = useState(true);
   
   const [activeProject, setActiveProject] = useState(null); 
   const [projects, setProjects] = useState([]);
@@ -41,18 +42,12 @@ export default function App() {
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-  useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    const savedUsername = localStorage.getItem("username");
-    if (savedToken && savedUsername) {
-      setToken(savedToken); setUsername(savedUsername);
-    }
-  }, []);
-
   const authConfig = () => ({ headers: { Authorization: `Bearer ${token}` } });
 
-  useEffect(() => { if (token) fetchProjects(); }, [token]);
-  useEffect(() => { if (activeProject) fetchTasks(activeProject._id); }, [activeProject]);
+  const handleLogout = () => {
+    setToken(null); setUsername(""); setActiveProject(null);
+    localStorage.removeItem("token"); localStorage.removeItem("username");
+  };
 
   const fetchProjects = async () => {
     try {
@@ -70,6 +65,22 @@ export default function App() {
     } catch (error) { console.error("Error fetching tasks:", error); }
   };
 
+  useEffect(() => {
+    const loadProjects = async () => {
+      if (token) await fetchProjects();
+    };
+    loadProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  useEffect(() => {
+    const loadTasks = async () => {
+      if (activeProject) await fetchTasks(activeProject._id);
+    };
+    loadTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProject]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
@@ -77,7 +88,7 @@ export default function App() {
       const { token: newToken, username: newUsername } = response.data;
       setToken(newToken); setUsername(newUsername); setPassword(""); 
       localStorage.setItem("token", newToken); localStorage.setItem("username", newUsername);
-    } catch (error) { alert("Login failed. Check your credentials."); }
+    } catch (err) { console.error(err); alert("Login failed. Check your credentials."); }
   };
 
   const handleRegister = async (e) => {
@@ -85,12 +96,8 @@ export default function App() {
     try {
       await axios.post(`${API_URL}/register`, { username, password });
       alert("Registration successful! Please log in.");
-    } catch (error) { alert("Error registering. Username might be taken."); }
-  };
-
-  const handleLogout = () => {
-    setToken(null); setUsername(""); setActiveProject(null);
-    localStorage.removeItem("token"); localStorage.removeItem("username");
+      setIsLoginView(true);
+    } catch (err) { console.error(err); alert("Error registering. Username might be taken."); }
   };
 
   const handleCreateProject = async (e) => {
@@ -99,7 +106,7 @@ export default function App() {
     try {
       await axios.post(`${API_URL}/projects`, { name: newProjectName, description: newProjectDesc }, authConfig());
       setNewProjectName(""); setNewProjectDesc(""); fetchProjects();
-    } catch (error) { console.error("Failed to create project"); }
+    } catch (err) { console.error("Failed to create project", err); }
   };
 
   const handleDeleteProject = async (e, projectId) => {
@@ -108,7 +115,7 @@ export default function App() {
     try {
       await axios.delete(`${API_URL}/projects/${projectId}`, authConfig());
       fetchProjects();
-    } catch (error) { console.error("Failed to delete project"); }
+    } catch (err) { console.error("Failed to delete project", err); }
   };
 
   const handleInviteUser = async (e) => {
@@ -118,7 +125,7 @@ export default function App() {
       const response = await axios.put(`${API_URL}/projects/${activeProject._id}/invite`, { newMemberUsername: inviteUsername }, authConfig());
       setActiveProject(response.data); setInviteUsername(""); fetchProjects(); 
       alert(`Successfully added ${inviteUsername} to the project!`);
-    } catch (error) { alert("User not found! Make sure you typed their exact username."); }
+    } catch (err) { console.error(err); alert("User not found! Make sure you typed their exact username."); }
   };
 
   const handleCreateTask = async (e) => {
@@ -131,7 +138,7 @@ export default function App() {
       }, authConfig());
       setNewTaskTitle(""); setNewDescription(""); setNewPriority("Medium"); setNewDueDate(""); setNewAssignee("Unassigned");
       fetchTasks(activeProject._id); 
-    } catch (error) { console.error("Failed to create task"); }
+    } catch (err) { console.error("Failed to create task", err); }
   };
 
   const handleUpdateTask = async (e) => {
@@ -140,14 +147,14 @@ export default function App() {
       await axios.put(`${API_URL}/tasks/${editingTask._id}`, editingTask, authConfig());
       setEditingTask(null); 
       fetchTasks(activeProject._id);
-    } catch (error) { console.error("Failed to update task"); }
+    } catch (err) { console.error("Failed to update task", err); }
   };
 
   const handleMoveTask = async (taskId, newStatus) => {
     try {
       await axios.put(`${API_URL}/tasks/${taskId}`, { status: newStatus }, authConfig());
       fetchTasks(activeProject._id); 
-    } catch (error) { console.error("Failed to move task"); }
+    } catch (err) { console.error("Failed to move task", err); }
   };
 
   const handleDeleteTask = async (taskId) => {
@@ -155,7 +162,7 @@ export default function App() {
     try {
       await axios.delete(`${API_URL}/tasks/${taskId}`, authConfig());
       fetchTasks(activeProject._id);
-    } catch (error) { console.error("Failed to delete task"); }
+    } catch (err) { console.error("Failed to delete task", err); }
   };
 
   const getPriorityClass = (priority) => {
@@ -173,13 +180,32 @@ export default function App() {
       <div className="auth-container">
         <div className="auth-card glass-panel fade-in-up">
           <h2>Project Flow</h2>
-          <p className="auth-subtitle">Welcome back. Please sign in.</p>
-          <form className="auth-form" onSubmit={handleLogin}>
+          <p className="auth-subtitle">{isLoginView ? 'Welcome back. Please sign in.' : 'Join us. Create a new account.'}</p>
+          
+          <div className="auth-toggle-group">
+            <button 
+              className={`auth-toggle-btn ${isLoginView ? 'active' : ''}`} 
+              onClick={() => setIsLoginView(true)}
+              type="button"
+            >
+              Sign In
+            </button>
+            <button 
+              className={`auth-toggle-btn ${!isLoginView ? 'active' : ''}`} 
+              onClick={() => setIsLoginView(false)}
+              type="button"
+            >
+              Sign Up
+            </button>
+          </div>
+
+          <form className="auth-form" onSubmit={isLoginView ? handleLogin : handleRegister}>
             <input className="input-field" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} required />
             <input className="input-field" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
             <div className="auth-buttons">
-              <button className="btn btn-primary" type="submit">Login</button>
-              <button className="btn btn-secondary" type="button" onClick={handleRegister}>Register</button>
+              <button className="btn btn-primary" style={{ width: "100%" }} type="submit">
+                {isLoginView ? 'Login' : 'Create Account'}
+              </button>
             </div>
           </form>
         </div>
