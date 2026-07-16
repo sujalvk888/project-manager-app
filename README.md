@@ -330,21 +330,13 @@ Recommended screenshots to include:
 
 ---
 
-## 🎥 Demo GIFs
+## 🎬 Live Demo
 
-> **Demo recordings will be added soon.**
-
-Suggested GIFs:
-
-- User Registration
-- User Login
-- Creating a Project
-- Inviting Team Members
-- Creating Tasks
-- Moving Tasks Between Columns
-- Progress Percentage Updating
-- Filtering Tasks
-- Deleting a Project
+<p align="center">
+  <img src="./assets/gifs/demo.gif"
+       alt="Project Flow Demo"
+       width="100%">
+</p>
 
 ---
 
