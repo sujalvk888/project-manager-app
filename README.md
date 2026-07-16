@@ -310,26 +310,6 @@ project-manager-app/
     └── index.html
 ```
 
----
-
-# 📸 Screenshots
-
-> **Screenshots will be added soon.**
-
-Recommended screenshots to include:
-
-- 🏠 Authentication Page
-- 📊 Dashboard
-- 📁 Project Workspace
-- 📋 Kanban Board
-- ➕ Create Project
-- 📝 Create Task
-- 👥 Team Invitation
-- 📈 Progress Indicator
-- 📱 Responsive Mobile View
-
----
-
 ## 🎬 Live Demo
 
 <p align="center">
@@ -337,6 +317,40 @@ Recommended screenshots to include:
        alt="Project Flow Demo"
        width="100%">
 </p>
+
+---
+
+## 📸 Screenshots
+
+### 🔐 Authentication
+
+| Sign In | Sign Up |
+|---------|---------|
+| ![Sign In](./assets/screenshots/sign-in.png) | ![Sign Up](./assets/screenshots/sign-up.png) |
+
+---
+
+### 🚀 Dashboard
+
+| Dashboard |
+|-----------|
+| ![Dashboard](./assets/screenshots/dashboard.png) |
+
+---
+
+### 📁 Project Management
+
+| Projects |
+|----------|
+| ![Projects](./assets/screenshots/projects.png) |
+
+---
+
+### ✅ Task Board
+
+| Kanban Board |
+|--------------|
+| ![Task Board](./assets/screenshots/task-board.png) |
 
 ---
 
